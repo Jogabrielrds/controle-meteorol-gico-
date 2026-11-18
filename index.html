@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registrar local</title>
+<meta name="description" content="Registre um local com latitude e longitude capturadas pelo seu dispositivo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #edf1ea;
+    --surface: #f8faf6;
+    --ink: #13242b;
+    --muted: #5a6b70;
+    --line: #c9d3cb;
+    --contour: #2f6f6a;
+    --pin: #e0502b;
+    --pin-ink: #ffffff;
+    --ok: #1f6b45;
+    --err: #b3261e;
+    --radius: 10px;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0f1b20;
+      --surface: #16262c;
+      --ink: #e6eee8;
+      --muted: #94a6a9;
+      --line: #2b4048;
+      --contour: #5fb3aa;
+      --pin: #ff7a55;
+      --pin-ink: #1a0d08;
+      --ok: #6fd4a0;
+      --err: #ff9a92;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1rem/1.55 var(--body);
+    padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(2rem, env(safe-area-inset-bottom));
+  }
+
+  .wrap { max-width: 34rem; margin: 0 auto; }
+
+  /* Cabeçalho com curvas de nível */
+  header { position: relative; padding: 2.25rem 0 1.5rem; }
+  .contours {
+    position: absolute; inset: 0 0 auto auto;
+    width: 15rem; max-width: 60%;
+    color: var(--contour); opacity: .45;
+    pointer-events: none;
+  }
+  h1 {
+    position: relative;
+    font: 700 clamp(2.4rem, 9vw, 3.4rem)/1 var(--display);
+    letter-spacing: -.03em;
+    margin: 0 0 .75rem;
+  }
+  header p { position: relative; margin: 0; color: var(--muted); max-width: 26rem; }
+
+  /* Formulário */
+  form, .done {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+  .field { margin-bottom: 1.25rem; }
+  label, .legend { display: block; font-weight: 600; font-size: .95rem; margin-bottom: .4rem; }
+  .hint { color: var(--muted); font-size: .85rem; margin: .35rem 0 0; }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: .7rem .8rem;
+  }
+  input::placeholder { color: var(--muted); opacity: .8; }
+  input:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 3px solid var(--contour);
+    outline-offset: 2px;
+  }
+  input[aria-invalid="true"] { border-color: var(--err); }
+
+  .coords { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .coords input { font-variant-numeric: tabular-nums; }
+
+  button {
+    font: 600 1rem/1 var(--body);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: .9rem 1.1rem;
+    border: 1px solid transparent;
+    transition: transform .12s ease, background-color .12s ease;
+  }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { cursor: progress; opacity: .65; }
+
+  .locate {
+    width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: .55rem;
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--ink);
+    margin-bottom: 1rem;
+  }
+  .locate:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .locate svg { width: 1.15rem; height: 1.15rem; flex: none; }
+
+  .submit {
+    width: 100%;
+    background: var(--pin);
+    color: var(--pin-ink);
+    margin-top: .25rem;
+  }
+  .submit:hover:not(:disabled) { filter: brightness(1.06); }
+
+  .status { min-height: 1.4rem; margin: .75rem 0 0; font-size: .9rem; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  .status.info { color: var(--muted); }
+
+  .field-error { color: var(--err); font-size: .85rem; margin: .35rem 0 0; }
+
+  /* Confirmação */
+  .done h2 { font: 700 1.6rem/1.1 var(--display); letter-spacing: -.02em; margin: 0 0 .5rem; }
+  .done p { margin: 0 0 1.25rem; color: var(--muted); }
+  .done dl { margin: 0 0 1.5rem; display: grid; grid-template-columns: auto 1fr; gap: .35rem 1rem; }
+  .done dt { color: var(--muted); }
+  .done dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
+  .done button { background: var(--ink); color: var(--paper); }
+
+  [hidden] { display: none !important; }
+
+  footer { margin-top: 1.25rem; font-size: .85rem; color: var(--muted); }
+  footer a { color: inherit; }
+
+  @media (max-width: 420px) {
+    .coords { grid-template-columns: 1fr; }
+    form, .done { padding: 1.15rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <svg class="contours" viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+      <path d="M232 20c-28-20-78-18-112 6S58 70 40 104s-4 74 40 84 92-8 120-44 42-96 32-124z"/>
+      <path d="M216 38c-22-14-62-12-90 8s-50 44-64 72-2 58 32 66 72-6 94-34 34-76 28-112z"/>
+      <path d="M200 56c-16-9-46-8-68 8s-38 34-48 56 0 42 24 48 52-4 68-24 28-56 24-88z"/>
+      <path d="M182 76c-10-5-30-4-44 8s-24 24-28 40 4 28 20 30 32-4 42-18 16-38 10-60z"/>
+      <path d="M160 96c-6-3-16-2-24 6s-12 16-12 26 8 16 18 14 18-10 20-20 0-20-2-26z"/>
+    </svg>
+    <h1>Registrar local</h1>
+    <p>Dê um nome ao lugar e use a localização do seu dispositivo para preencher latitude e longitude.</p>
+  </header>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <label for="local">Nome do local</label>
+      <input id="local" name="local" type="text" autocomplete="off" maxlength="200" placeholder="Ex.: Praça da Sé, entrada principal" required>
+      <p class="field-error" id="local-err" hidden></p>
+    </div>
+
+    <button type="button" class="locate" id="locate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+      </svg>
+      <span id="locate-label">Usar minha localização</span>
+    </button>
+
+    <div class="coords">
+      <div class="field">
+        <label for="lat">Latitude</label>
+        <input id="lat" name="lat" type="number" step="any" inputmode="decimal" placeholder="-23.550520" required>
+      </div>
+      <div class="field">
+        <label for="lng">Longitude</label>
+        <input id="lng" name="lng" type="number" step="any" inputmode="decimal" placeholder="-46.633308" required>
+      </div>
+    </div>
+    <p class="hint" id="accuracy">Se o GPS não funcionar, você pode digitar as coordenadas manualmente.</p>
+    <p class="field-error" id="coords-err" hidden></p>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+
+    <button type="submit" class="submit" id="submit">Enviar registro</button>
+  </form>
+
+  <section class="done" id="done" hidden aria-live="polite">
+    <h2>Registro enviado</h2>
+    <p>Os dados foram enviados ao formulário.</p>
+    <dl>
+      <dt>Local</dt><dd id="d-local"></dd>
+      <dt>Latitude</dt><dd id="d-lat"></dd>
+      <dt>Longitude</dt><dd id="d-lng"></dd>
+    </dl>
+    <button type="button" id="again">Registrar outro local</button>
+  </section>
+
+  <footer>
+    Prefere o formulário original?
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSdN7QqvstcGkvRxjO2Ever0NXIFVTEWZaNVBrqj5cdUPASuDw/viewform" target="_blank" rel="noopener">Abrir no Google Forms</a>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // Configuração do Google Forms
+  var FORM_ID = "1FAIpQLSdN7QqvstcGkvRxjO2Ever0NXIFVTEWZaNVBrqj5cdUPASuDw";
+  var ACTION  = "https://docs.google.com/forms/d/e/" + FORM_ID + "/formResponse";
+  var ENTRY   = {
+    local: "entry.877567783",
+    lat:   "entry.1750050888",
+    lng:   "entry.1113208572"
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    form: $("form"), done: $("done"),
+    local: $("local"), lat: $("lat"), lng: $("lng"),
+    localErr: $("local-err"), coordsErr: $("coords-err"),
+    locate: $("locate"), locateLabel: $("locate-label"),
+    submit: $("submit"), status: $("status"), accuracy: $("accuracy"),
+    dLocal: $("d-local"), dLat: $("d-lat"), dLng: $("d-lng"), again: $("again")
+  };
+  var DEFAULT_HINT = el.accuracy.textContent;
+
+  function setStatus(msg, type) {
+    el.status.textContent = msg || "";
+    el.status.className = "status" + (type ? " " + type : "");
+  }
+
+  function showError(node, input, msg) {
+    node.textContent = msg;
+    node.hidden = false;
+    if (input) input.setAttribute("aria-invalid", "true");
+  }
+  function clearErrors() {
+    el.localErr.hidden = true;
+    el.coordsErr.hidden = true;
+    [el.local, el.lat, el.lng].forEach(function (i) { i.removeAttribute("aria-invalid"); });
+  }
+
+  // Geolocalização
+  function geoMessage(err) {
+    if (err && err.code === 1) return "Permissão negada. Libere a localização no navegador ou digite as coordenadas.";
+    if (err && err.code === 2) return "Não foi possível obter sua posição. Tente em um local aberto ou digite as coordenadas.";
+    if (err && err.code === 3) return "A busca demorou demais. Tente novamente.";
+    return "Erro ao obter a localização.";
+  }
+
+  function locate() {
+    if (!("geolocation" in navigator)) {
+      setStatus("Este navegador não suporta geolocalização. Digite as coordenadas.", "err");
+      return;
+    }
+    el.locate.disabled = true;
+    el.locateLabel.textContent = "Buscando posição…";
+    setStatus("Aguardando o GPS do dispositivo…", "info");
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        el.lat.value = pos.coords.latitude.toFixed(6);
+        el.lng.value = pos.coords.longitude.toFixed(6);
+        el.accuracy.textContent = "Precisão aproximada: ±" + Math.round(pos.coords.accuracy) + " m";
+        clearErrors();
+        setStatus("Coordenadas preenchidas.", "ok");
+        el.locate.disabled = false;
+        el.locateLabel.textContent = "Atualizar minha localização";
+      },
+      function (err) {
+        setStatus(geoMessage(err), "err");
+        el.locate.disabled = false;
+        el.locateLabel.textContent = "Usar minha localização";
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  // Validação
+  function validate() {
+    clearErrors();
+    var ok = true;
+    var local = el.local.value.trim();
+    var lat = parseFloat(el.lat.value);
+    var lng = parseFloat(el.lng.value);
+
+    if (!local) {
+      showError(el.localErr, el.local, "Informe o nome do local.");
+      ok = false;
+    }
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      showError(el.coordsErr, el.lat, "A latitude deve estar entre -90 e 90.");
+      ok = false;
+    } else if (isNaN(lng) || lng < -180 || lng > 180) {
+      showError(el.coordsErr, el.lng, "A longitude deve estar entre -180 e 180.");
+      ok = false;
+    }
+    return ok ? { local: local, lat: lat.toFixed(6), lng: lng.toFixed(6) } : null;
+  }
+
+  // Envio ao Google Forms
+  function send(data) {
+    var body = new URLSearchParams();
+    body.append(ENTRY.local, data.local);
+    body.append(ENTRY.lat, data.lat);
+    body.append(ENTRY.lng, data.lng);
+    // no-cors: o Google não devolve cabeçalhos CORS, então a resposta é opaca.
+    return fetch(ACTION, { method: "POST", mode: "no-cors", body: body });
+  }
+
+  el.form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var data = validate();
+    if (!data) {
+      var firstInvalid = el.form.querySelector('[aria-invalid="true"]');
+      if (firstInvalid) firstInvalid.focus();
+      setStatus("", "");
+      return;
+    }
+    el.submit.disabled = true;
+    el.submit.textContent = "Enviando…";
+    setStatus("", "");
+
+    send(data).then(function () {
+      el.dLocal.textContent = data.local;
+      el.dLat.textContent = data.lat;
+      el.dLng.textContent = data.lng;
+      el.form.hidden = true;
+      el.done.hidden = false;
+      el.done.querySelector("h2").tabIndex = -1;
+      el.done.querySelector("h2").focus();
+    }).catch(function () {
+      setStatus("Não foi possível enviar. Verifique sua conexão e tente novamente.", "err");
+    }).then(function () {
+      el.submit.disabled = false;
+      el.submit.textContent = "Enviar registro";
+    });
+  });
+
+  el.locate.addEventListener("click", locate);
+
+  el.again.addEventListener("click", function () {
+    el.form.reset();
+    clearErrors();
+    setStatus("", "");
+    el.accuracy.textContent = DEFAULT_HINT;
+    el.locateLabel.textContent = "Usar minha localização";
+    el.done.hidden = true;
+    el.form.hidden = false;
+    el.local.focus();
+  });
+
+  [el.local, el.lat, el.lng].forEach(function (i) {
+    i.addEventListener("input", function () { i.removeAttribute("aria-invalid"); });
+  });
+})();
+</script>
+</body>
+</html>
